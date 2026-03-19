@@ -3,6 +3,9 @@ import { createPlayerCapsuleMesh } from '../entities/createPlayerCapsuleMesh.js'
 import { createMainCamera } from '../systems/createMainCamera.js';
 import { configureLighting } from '../systems/configureLighting.js';
 import { createIdentityMatrix, createModelMatrix, multiplyMatrices } from '../systems/math3d.js';
+import { getAgeStageScale } from './progression/ageStages.js';
+import { createGameplayAccessController } from './progression/gameplayAccess.js';
+import { createPlayerState } from './progression/playerState.js';
 
 const vertexShaderSource = `
 attribute vec3 aPosition;
@@ -42,7 +45,7 @@ void main() {
 }
 `;
 
-export function createGame(container) {
+export function createGame(container, options = {}) {
   const canvas = document.createElement('canvas');
   canvas.className = 'game-canvas';
   container.prepend(canvas);
@@ -58,13 +61,17 @@ export function createGame(container) {
 
   const camera = createMainCamera();
   const lighting = configureLighting();
+  const playerState = createPlayerState();
+  const gameplayAccess = createGameplayAccessController(playerState);
   const meshes = [createGroundMesh(), createPlayerCapsuleMesh()];
   const gpuMeshes = meshes.map((mesh) => uploadMesh(gl, mesh));
   const uniforms = getUniformLocations(gl, program);
   const attributes = getAttributeLocations(gl, program);
+  const syncHud = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
 
   let frameId = 0;
   const startedAt = performance.now();
+  const completedMilestones = new Set();
 
   const resize = () => {
     const width = container.clientWidth;
@@ -76,14 +83,81 @@ export function createGame(container) {
     gl.viewport(0, 0, canvas.width, canvas.height);
   };
 
+  const emitHudState = () => {
+    const snapshot = playerState.getSnapshot();
+    syncHud({
+      player: snapshot,
+      capabilities: gameplayAccess.getCapabilities(),
+      access: gameplayAccess.describeChecks(),
+      progression: playerState.evaluateStageProgression(),
+    });
+  };
+
+  const unlockDemoProgression = (elapsed) => {
+    if (elapsed >= 3 && !completedMilestones.has('infant-step-1')) {
+      completedMilestones.add('infant-step-1');
+      playerState.addExperience(40);
+      playerState.addTutorialMilestone('basic-mobility');
+      playerState.unlockSkill('crawl-balance');
+    }
+
+    if (elapsed >= 6 && !completedMilestones.has('infant-step-2')) {
+      completedMilestones.add('infant-step-2');
+      playerState.addExperience(60);
+      playerState.addTutorialMilestone('first-foraging-lesson');
+      playerState.addStoryGoal('survive-first-night');
+      playerState.addInventoryItem('family-totem');
+      playerState.advanceAgeStage();
+    }
+
+    if (elapsed >= 10 && !completedMilestones.has('child-step-1')) {
+      completedMilestones.add('child-step-1');
+      playerState.addExperience(140);
+      playerState.addTutorialMilestone('crafting-basics');
+      playerState.unlockSkill('berry-foraging');
+    }
+
+    if (elapsed >= 13 && !completedMilestones.has('child-step-2')) {
+      completedMilestones.add('child-step-2');
+      playerState.addExperience(160);
+      playerState.addTutorialMilestone('field-survival');
+      playerState.addStoryGoal('earn-village-trust');
+      playerState.addInventoryItem('apprentice-toolkit');
+      playerState.advanceAgeStage();
+    }
+
+    if (elapsed >= 17 && !completedMilestones.has('teen-step-1')) {
+      completedMilestones.add('teen-step-1');
+      playerState.addExperience(280);
+      playerState.addTutorialMilestone('combat-discipline');
+      playerState.unlockSkill('stone-weapon-mastery');
+    }
+
+    if (elapsed >= 20 && !completedMilestones.has('teen-step-2')) {
+      completedMilestones.add('teen-step-2');
+      playerState.addExperience(420);
+      playerState.addTutorialMilestone('advanced-traversal');
+      playerState.addStoryGoal('restore-frontier-beacon');
+      playerState.addInventoryItem('lineage-sigil');
+      playerState.advanceAgeStage();
+    }
+  };
+
   const render = (time) => {
     const elapsed = (time - startedAt) / 1000;
+    unlockDemoProgression(elapsed);
+    emitHudState();
+
     resize();
     gl.clearColor(0.529, 0.714, 1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    const snapshot = playerState.getSnapshot();
+    const playerScale = getAgeStageScale(snapshot.stage);
+    const playerHeightOffset = 1.08 * playerScale;
+
     camera.position[0] = 5.5 + Math.sin(elapsed * 0.25) * 0.8;
-    camera.target[1] = 1 + Math.sin(elapsed * 0.5) * 0.05;
+    camera.target[1] = playerHeightOffset + Math.sin(elapsed * 0.5) * 0.05;
 
     gl.uniformMatrix4fv(uniforms.projectionMatrix, false, toFloat32(camera.getProjectionMatrix(canvas.width / canvas.height)));
     gl.uniformMatrix4fv(uniforms.viewMatrix, false, toFloat32(camera.getViewMatrix()));
@@ -96,8 +170,9 @@ export function createGame(container) {
 
     const playerMatrix = multiplyMatrices(
       createModelMatrix({
-        translation: [0, 1.08 + Math.abs(Math.sin(elapsed * 1.8)) * 0.1, 0],
+        translation: [0, playerHeightOffset + Math.abs(Math.sin(elapsed * 1.8)) * 0.08 * playerScale, 0],
         rotationY: Math.sin(elapsed * 0.75) * 0.35,
+        scale: [playerScale, playerScale, playerScale],
       }),
       createIdentityMatrix(),
     );
@@ -109,6 +184,7 @@ export function createGame(container) {
   return {
     start() {
       window.addEventListener('resize', resize);
+      emitHudState();
       resize();
       render(performance.now());
     },

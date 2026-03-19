@@ -8,8 +8,11 @@ if (!(root instanceof HTMLElement)) {
   throw new Error('Root element #root was not found.');
 }
 
+const hud = createHudOverlay();
 root.className = 'app-shell';
-root.append(createHudOverlay());
+root.append(hud.element);
 
-const game = createGame(root);
+const game = createGame(root, {
+  onStateChange: hud.update,
+});
 game.start();
