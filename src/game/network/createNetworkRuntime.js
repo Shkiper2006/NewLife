@@ -87,12 +87,17 @@ export function createNetworkRuntime(playerState) {
     }
   }
 
-  function syncStory(snapshot, world, survival) {
+  function syncStory(snapshot, world, story, survival) {
     session.updateSharedStoryProgress({
-      chapterId: snapshot.stage === 'Adult' ? 'frontier-restoration' : 'prologue',
-      checkpointId: world.activeZoneId,
-      completedTriggers: snapshot.storyGoals,
-      pendingTriggers: world.gates.filter((gate) => !gate.unlocked).map((gate) => gate.unlocks),
+      chapterId: story?.activeChapterId ?? (snapshot.stage === 'Adult' ? 'frontier-restoration' : 'prologue'),
+      checkpointId: story?.checkpointId ?? world.activeZoneId,
+      completedTriggers: story?.completedEventIds ?? snapshot.storyGoals,
+      pendingTriggers: story
+        ? story.acts
+            .find((act) => act.id === story.activeActId)
+            ?.requiredObjectives.filter((objective) => !objective.completed)
+            .map((objective) => objective.label) ?? []
+        : world.gates.filter((gate) => !gate.unlocked).map((gate) => gate.unlocks),
     });
 
     replication.replaceCollection('Buildable',
@@ -203,7 +208,7 @@ export function createNetworkRuntime(playerState) {
   }
 
   return {
-    update({ elapsedSeconds, world, survival }) {
+    update({ elapsedSeconds, world, story, survival }) {
       const playerSnapshot = playerState.getSnapshot();
       const roleSync = createRoleSyncState(playerSnapshot.role, playerSnapshot.stage);
       playerState.setNetworkBonuses(roleSync.bonuses);
@@ -217,7 +222,7 @@ export function createNetworkRuntime(playerState) {
       runSessionTimeline(elapsedSeconds);
       syncPlayers(elapsedSeconds, playerState.getSnapshot());
       syncStaticEntities(world, survival, elapsedSeconds);
-      syncStory(playerState.getSnapshot(), world, survival);
+      syncStory(playerState.getSnapshot(), world, story, survival);
 
       return this.getSnapshot();
     },

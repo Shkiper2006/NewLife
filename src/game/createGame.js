@@ -8,6 +8,7 @@ import { getAgeStageScale } from './progression/ageStages.js';
 import { createGameplayAccessController } from './progression/gameplayAccess.js';
 import { createPlayerState } from './progression/playerState.js';
 import { createNetworkRuntime } from './network/index.js';
+import { createStoryCampaign } from './story/index.js';
 import { createWorldState } from './world/index.js';
 
 const vertexShaderSource = `
@@ -67,7 +68,8 @@ export function createGame(container, options = {}) {
   const playerState = createPlayerState();
   const survival = createSurvivalPrototype(playerState);
   const gameplayAccess = createGameplayAccessController(playerState, () => survival.getDynamicEffects());
-  const worldState = createWorldState(playerState);
+  const storyCampaign = createStoryCampaign(playerState);
+  const worldState = createWorldState(playerState, storyCampaign);
   const networkRuntime = createNetworkRuntime(playerState);
   const meshes = [createGroundMesh(), createPlayerCapsuleMesh()];
   const gpuMeshes = meshes.map((mesh) => uploadMesh(gl, mesh));
@@ -98,27 +100,42 @@ export function createGame(container, options = {}) {
       access: gameplayAccess.describeChecks(),
       progression: playerState.evaluateStageProgression(),
       world: worldState.describeWorldSnapshot(),
+      story: storyCampaign.getSnapshot(),
       survival: survivalSnapshot,
       network: networkSnapshot,
     });
   };
 
   const unlockDemoProgression = (elapsed) => {
+    if (elapsed >= 1 && !completedMilestones.has('story-wake')) {
+      completedMilestones.add('story-wake');
+      storyCampaign.recordWorldEvent('wake-in-nursery');
+      storyCampaign.recordWorldEvent('hear-code-blue');
+    }
+
     if (elapsed >= 3 && !completedMilestones.has('infant-step-1')) {
       completedMilestones.add('infant-step-1');
       playerState.addExperience(40);
       playerState.addTutorialMilestone('basic-mobility');
       playerState.unlockSkill('crawl-balance');
       playerState.unlockSkill('squeeze-through-vents');
+      storyCampaign.recordWorldEvent('escape-checkup-room');
+      storyCampaign.recordWorldEvent('find-first-shortcut');
     }
 
     if (elapsed >= 6 && !completedMilestones.has('infant-step-2')) {
       completedMilestones.add('infant-step-2');
       playerState.addExperience(60);
       playerState.addTutorialMilestone('first-foraging-lesson');
-      playerState.addStoryGoal('survive-first-night');
       playerState.addInventoryItem('family-totem');
+      storyCampaign.recordWorldEvent('survive-first-night');
       playerState.advanceAgeStage();
+    }
+
+    if (elapsed >= 8 && !completedMilestones.has('story-yards-1')) {
+      completedMilestones.add('story-yards-1');
+      storyCampaign.recordWorldEvent('find-safe-play-route');
+      storyCampaign.recordWorldEvent('win-neighborhood-trust');
     }
 
     if (elapsed >= 10 && !completedMilestones.has('child-step-1')) {
@@ -127,15 +144,25 @@ export function createGame(container, options = {}) {
       playerState.addTutorialMilestone('crafting-basics');
       playerState.unlockSkill('berry-foraging');
       playerState.unlockSkill('door-latch-reach');
+      storyCampaign.recordWorldEvent('unlock-family-hideout');
+      storyCampaign.recordWorldEvent('recover-courtyard-cache');
     }
 
     if (elapsed >= 13 && !completedMilestones.has('child-step-2')) {
       completedMilestones.add('child-step-2');
       playerState.addExperience(160);
       playerState.addTutorialMilestone('field-survival');
-      playerState.addStoryGoal('earn-village-trust');
       playerState.addInventoryItem('apprentice-toolkit');
+      storyCampaign.recordWorldEvent('earn-village-trust');
+      storyCampaign.recordWorldEvent('stabilize-yard-shelter');
       playerState.advanceAgeStage();
+    }
+
+    if (elapsed >= 15 && !completedMilestones.has('story-district-1')) {
+      completedMilestones.add('story-district-1');
+      storyCampaign.recordWorldEvent('cross-first-checkpoint');
+      storyCampaign.recordWorldEvent('meet-courier-faction');
+      storyCampaign.recordWorldEvent('meet-watchers-network');
     }
 
     if (elapsed >= 17 && !completedMilestones.has('teen-step-1')) {
@@ -145,16 +172,42 @@ export function createGame(container, options = {}) {
       playerState.unlockSkill('stone-weapon-mastery');
       playerState.unlockSkill('ledge-balance');
       playerState.unlockSkill('service-panel-access');
+      storyCampaign.recordWorldEvent('trace-blackout-origin');
+      storyCampaign.recordWorldEvent('discover-hidden-substation');
     }
 
     if (elapsed >= 20 && !completedMilestones.has('teen-step-2')) {
       completedMilestones.add('teen-step-2');
       playerState.addExperience(420);
       playerState.addTutorialMilestone('advanced-traversal');
-      playerState.addStoryGoal('restore-frontier-beacon');
       playerState.addInventoryItem('lineage-sigil');
       playerState.unlockSkill('control-center-clearance');
+      storyCampaign.recordWorldEvent('restore-frontier-beacon');
       playerState.advanceAgeStage();
+    }
+
+    if (elapsed >= 22 && !completedMilestones.has('adult-control-center')) {
+      completedMilestones.add('adult-control-center');
+      storyCampaign.recordWorldEvent('assume-network-control');
+      storyCampaign.recordWorldEvent('restore-water-pressure');
+      storyCampaign.recordWorldEvent('bypass-security-grid');
+      storyCampaign.recordWorldEvent('stabilize-district-services');
+      storyCampaign.updateInfrastructure({
+        power: 1,
+        water: 1,
+        communication: 1,
+        defense: 1,
+      });
+      storyCampaign.recordWorldEvent('recover-city-archives');
+    }
+
+    if (elapsed >= 24 && !completedMilestones.has('adult-final-choice')) {
+      completedMilestones.add('adult-final-choice');
+      storyCampaign.recordWorldEvent('choose-city-future');
+      storyCampaign.recordWorldEvent({ type: storyCampaign.StoryWorldEventType.SeasonalHook, id: 'season_branching_referendum' });
+      if (storyCampaign.isFinalChoiceAvailable(storyCampaign.FinalFactionChoice.OpenTheCity)) {
+        storyCampaign.chooseFinalFaction(storyCampaign.FinalFactionChoice.OpenTheCity);
+      }
     }
   };
 
@@ -166,9 +219,11 @@ export function createGame(container, options = {}) {
     unlockDemoProgression(elapsed);
     const survivalSnapshot = survival.update(deltaSeconds);
     const worldSnapshot = worldState.describeWorldSnapshot();
+    const storySnapshot = storyCampaign.getSnapshot();
     const networkSnapshot = networkRuntime.update({
       elapsedSeconds: elapsed,
       world: worldSnapshot,
+      story: storySnapshot,
       survival: survivalSnapshot,
     });
     emitHudState(survivalSnapshot, networkSnapshot);
