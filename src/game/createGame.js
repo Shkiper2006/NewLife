@@ -3,6 +3,7 @@ import { createPlayerCapsuleMesh } from '../entities/createPlayerCapsuleMesh.js'
 import { createMainCamera } from '../systems/createMainCamera.js';
 import { configureLighting } from '../systems/configureLighting.js';
 import { createIdentityMatrix, createModelMatrix, multiplyMatrices } from '../systems/math3d.js';
+import { createSurvivalPrototype } from './createSurvivalPrototype.js';
 import { getAgeStageScale } from './progression/ageStages.js';
 import { createGameplayAccessController } from './progression/gameplayAccess.js';
 import { createPlayerState } from './progression/playerState.js';
@@ -63,7 +64,8 @@ export function createGame(container, options = {}) {
   const camera = createMainCamera();
   const lighting = configureLighting();
   const playerState = createPlayerState();
-  const gameplayAccess = createGameplayAccessController(playerState);
+  const survival = createSurvivalPrototype(playerState);
+  const gameplayAccess = createGameplayAccessController(playerState, () => survival.getDynamicEffects());
   const worldState = createWorldState(playerState);
   const meshes = [createGroundMesh(), createPlayerCapsuleMesh()];
   const gpuMeshes = meshes.map((mesh) => uploadMesh(gl, mesh));
@@ -72,6 +74,7 @@ export function createGame(container, options = {}) {
   const syncHud = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
 
   let frameId = 0;
+  let lastTime = performance.now();
   const startedAt = performance.now();
   const completedMilestones = new Set();
 
@@ -85,7 +88,7 @@ export function createGame(container, options = {}) {
     gl.viewport(0, 0, canvas.width, canvas.height);
   };
 
-  const emitHudState = () => {
+  const emitHudState = (survivalSnapshot) => {
     const snapshot = playerState.getSnapshot();
     syncHud({
       player: snapshot,
@@ -93,6 +96,7 @@ export function createGame(container, options = {}) {
       access: gameplayAccess.describeChecks(),
       progression: playerState.evaluateStageProgression(),
       world: worldState.describeWorldSnapshot(),
+      survival: survivalSnapshot,
     });
   };
 
@@ -153,8 +157,12 @@ export function createGame(container, options = {}) {
 
   const render = (time) => {
     const elapsed = (time - startedAt) / 1000;
+    const deltaSeconds = Math.min((time - lastTime) / 1000, 0.25);
+    lastTime = time;
+
     unlockDemoProgression(elapsed);
-    emitHudState();
+    const survivalSnapshot = survival.update(deltaSeconds);
+    emitHudState(survivalSnapshot);
 
     resize();
     gl.clearColor(0.529, 0.714, 1, 1);
@@ -163,6 +171,8 @@ export function createGame(container, options = {}) {
     const snapshot = playerState.getSnapshot();
     const playerScale = getAgeStageScale(snapshot.stage);
     const playerHeightOffset = 1.08 * playerScale;
+    const actionMultiplier = survivalSnapshot.effects.actionMultiplier;
+    const bobStrength = 0.08 * playerScale * actionMultiplier;
 
     camera.position[0] = 5.5 + Math.sin(elapsed * 0.25) * 0.8;
     camera.target[1] = playerHeightOffset + Math.sin(elapsed * 0.5) * 0.05;
@@ -178,8 +188,8 @@ export function createGame(container, options = {}) {
 
     const playerMatrix = multiplyMatrices(
       createModelMatrix({
-        translation: [0, playerHeightOffset + Math.abs(Math.sin(elapsed * 1.8)) * 0.08 * playerScale, 0],
-        rotationY: Math.sin(elapsed * 0.75) * 0.35,
+        translation: [0, playerHeightOffset + Math.abs(Math.sin(elapsed * (1.2 + actionMultiplier))) * bobStrength, 0],
+        rotationY: Math.sin(elapsed * 0.75 * Math.max(actionMultiplier, 0.35)) * 0.35,
         scale: [playerScale, playerScale, playerScale],
       }),
       createIdentityMatrix(),
@@ -192,7 +202,8 @@ export function createGame(container, options = {}) {
   return {
     start() {
       window.addEventListener('resize', resize);
-      emitHudState();
+      const survivalSnapshot = survival.getSnapshot();
+      emitHudState(survivalSnapshot);
       resize();
       render(performance.now());
     },

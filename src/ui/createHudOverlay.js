@@ -2,6 +2,15 @@ function formatList(items) {
   return items.length > 0 ? items.join(', ') : '—';
 }
 
+function formatResourceMap(values) {
+  const entries = Object.entries(values)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, amount]) => `<li><span>${key}</span><strong>${Number(amount).toFixed(amount % 1 === 0 ? 0 : 2)}</strong></li>`)
+    .join('');
+
+  return entries.length > 0 ? `<ul class="hud-grid-list">${entries}</ul>` : '<p>—</p>';
+}
+
 function renderBooleanMap(title, values) {
   const entries = Object.entries(values)
     .map(([key, enabled]) => `<li><span>${key}</span><strong>${enabled ? 'yes' : 'no'}</strong></li>`)
@@ -106,6 +115,75 @@ function renderInfrastructure(world) {
   `;
 }
 
+function renderSurvival(survival, access) {
+  const placements = survival.base.placements
+    .map(
+      (placement) => `
+        <li>
+          <strong>${placement.structureId}</strong>
+          <span>Snap: ${placement.snapPointId}</span>
+          <span>Pos: ${placement.position.x}, ${placement.position.z}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  const recipes = survival.recipePlan
+    .map(
+      (recipe) => `
+        <li>
+          <strong>${recipe.name}</strong>
+          <span>Need: ${Object.entries(recipe.ingredients)
+            .map(([itemId, amount]) => `${itemId}×${amount}`)
+            .join(', ')}</span>
+          <span>Output: ${Object.entries(recipe.output)
+            .map(([itemId, amount]) => `${itemId}×${amount}`)
+            .join(', ')}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  return `
+    <section class="hud-section">
+      <h3>Survival loop</h3>
+      <ul>
+        <li>Rest: ${survival.needs.rest.toFixed(1)}%</li>
+        <li>Safety: ${survival.needs.safety.toFixed(1)}%</li>
+        <li>Pressure: ${survival.needs.pressure.toFixed(2)}</li>
+        <li>Action multiplier: ${access.modifiers.actionMultiplier}</li>
+        <li>Save unlocked: ${access.modifiers.saveUnlocked ? 'yes' : 'no'}</li>
+        <li>Recovery unlocked: ${access.modifiers.recoveryUnlocked ? 'yes' : 'no'}</li>
+      </ul>
+    </section>
+    <section class="hud-section">
+      <h3>Resources</h3>
+      ${formatResourceMap(survival.inventory)}
+    </section>
+    <section class="hud-section">
+      <h3>Craft plan by stage</h3>
+      <p>Hints: ${formatList(survival.stageHints)}</p>
+      <ul class="hud-detail-list">${recipes}</ul>
+    </section>
+    <section class="hud-section">
+      <h3>Base safety & placement</h3>
+      <ul>
+        <li>Shelter coverage: ${survival.base.summary.shelterCoverage.toFixed(2)}</li>
+        <li>Defense coverage: ${survival.base.summary.defenseCoverage.toFixed(2)}</li>
+        <li>Utility coverage: ${survival.base.summary.utilityCoverage.toFixed(2)}</li>
+        <li>Recovery rate: ${survival.base.summary.recoveryRate.toFixed(2)}</li>
+      </ul>
+      <ul class="hud-detail-list">${placements || '<li><strong>Пока нет построек</strong><span>Сначала нужно скрафтить укрытие.</span></li>'}</ul>
+    </section>
+    <section class="hud-section">
+      <h3>Recent survival events</h3>
+      <ul class="hud-detail-list">${(survival.logs.length > 0 ? survival.logs : ['Ожидание первых крафтов и построек.'])
+        .map((entry) => `<li><span>${entry}</span></li>`)
+        .join('')}</ul>
+    </section>
+  `;
+}
+
 export function createHudOverlay() {
   const hud = document.createElement('aside');
   hud.className = 'hud-overlay';
@@ -116,19 +194,21 @@ export function createHudOverlay() {
 
   const tip = document.createElement('div');
   tip.className = 'hud-tip';
-  tip.textContent = 'Возрастная стадия управляет механиками, доступом и прогрессией.';
+  tip.textContent = 'Прототип: потребности деградируют, рецепты крафтятся по возрасту, а база снижает риск и открывает отдых.';
   hud.append(tip);
 
-  const update = ({ player, capabilities, access, progression, world }) => {
+  const update = ({ player, capabilities, access, progression, world, survival }) => {
     panel.innerHTML = `
       <span class="hud-label">Progression HUD</span>
-      <h1>NewLife Age Gates</h1>
+      <h1>NewLife Survival Prototype</h1>
       <section class="hud-section">
         <h2>${player.stage}</h2>
         <ul>
-          <li>Health: ${player.stats.health}%</li>
-          <li>Hunger: ${player.stats.hunger}%</li>
-          <li>Thirst: ${player.stats.thirst}%</li>
+          <li>Health: ${player.stats.health.toFixed(1)}%</li>
+          <li>Hunger: ${player.stats.hunger.toFixed(1)}%</li>
+          <li>Thirst: ${player.stats.thirst.toFixed(1)}%</li>
+          <li>Rest: ${player.stats.rest.toFixed(1)}%</li>
+          <li>Safety: ${player.stats.safety.toFixed(1)}%</li>
           <li>Experience: ${player.stats.experience}</li>
         </ul>
       </section>
@@ -165,6 +245,7 @@ export function createHudOverlay() {
       ${renderBooleanMap('Craft checks', access.crafting)}
       ${renderBooleanMap('Interaction checks', access.interactions)}
       ${renderBooleanMap('Constraint checks', access.constraints)}
+      ${renderSurvival(survival, access)}
       ${renderWorldZones(world)}
       ${renderWorldGates(world)}
       ${renderVerticality(world)}
@@ -175,13 +256,13 @@ export function createHudOverlay() {
   update({
     player: {
       stage: 'Infant',
-      stats: { health: 100, hunger: 100, thirst: 100, experience: 0 },
+      stats: { health: 100, hunger: 100, thirst: 100, rest: 100, safety: 18, experience: 0 },
       abilities: { unlockedSkills: [] },
     },
     capabilities: {
       locomotionModes: ['crawl', 'roll'],
-      craftRecipes: ['soft-cloth-wrap', 'rattle-toy'],
-      worldInteractions: ['observe', 'listen', 'grab-nearby', 'call-for-help'],
+      craftRecipes: ['infant-rope', 'infant-simple-shelter'],
+      worldInteractions: ['observe', 'listen', 'grab-nearby', 'call-for-help', 'rest-in-shelter'],
       constraints: {
         maxReachHeight: 0.8,
         maxCarryWeight: 2,
@@ -191,8 +272,8 @@ export function createHudOverlay() {
     },
     access: {
       movement: { crawl: true, run: false, climb: false, vault: false, ride: false },
-      crafting: { 'soft-cloth-wrap': true, 'stone-axe': false, 'iron-spear': false },
-      interactions: { gather: false, repair: false, forge: false, 'call-for-help': true },
+      crafting: { 'infant-simple-shelter': true, 'teen-spear': false, 'adult-fortification': false },
+      interactions: { gather: false, repair: false, forge: false, 'rest-in-shelter': true },
       constraints: {
         enterHospitalVents: true,
         enterYards: false,
@@ -201,6 +282,11 @@ export function createHudOverlay() {
         carrySupplyCrate: false,
         reachSecurityPanel: false,
         equipTierTwoWeapon: false,
+      },
+      modifiers: {
+        actionMultiplier: 1,
+        saveUnlocked: false,
+        recoveryUnlocked: false,
       },
     },
     progression: {
@@ -211,6 +297,20 @@ export function createHudOverlay() {
         requiredItems: ['family-totem'],
         tutorialMilestones: ['basic-mobility', 'first-foraging-lesson'],
       },
+    },
+    survival: {
+      needs: { rest: 100, safety: 18, pressure: 0.3 },
+      inventory: { rags: 8, bottle: 2, water: 2, sticks: 10, cloth: 6, metal_scrap: 4 },
+      base: {
+        placements: [],
+        summary: { shelterCoverage: 0, defenseCoverage: 0, utilityCoverage: 0, recoveryRate: 0 },
+      },
+      logs: ['Ожидание первых крафтов и построек.'],
+      recipePlan: [
+        { id: 'infant-rope', name: 'Верёвка из тряпок', ingredients: { rags: 2 }, output: { rope: 1 } },
+        { id: 'infant-simple-shelter', name: 'Простое укрытие', ingredients: { rope: 2, cloth: 2, sticks: 4 }, output: { simple_shelter: 1 } },
+      ],
+      stageHints: ['искать тряпки рядом с местом старта', 'использовать бутылочки для воды'],
     },
     world: {
       activeZoneId: 'hospital',
