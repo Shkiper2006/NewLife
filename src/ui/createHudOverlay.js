@@ -24,6 +24,106 @@ function renderBooleanMap(title, values) {
   `;
 }
 
+function renderRoleBonuses(player) {
+  return `
+    <section class="hud-section">
+      <h3>Network role sync</h3>
+      <p>${player.role}</p>
+      ${formatResourceMap(player.networkBonuses)}
+    </section>
+  `;
+}
+
+function renderNetworkArchitecture(network) {
+  const transports = network.architecture.transports
+    .map(
+      (transport) => `
+        <li>
+          <strong>${transport.id}</strong>
+          <span>${transport.usage}</span>
+          <span>${transport.reliability}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  return `
+    <section class="hud-section">
+      <h3>Network architecture</h3>
+      <p>${network.architecture.decision}</p>
+      <ul>
+        <li>Authority: ${network.architecture.authorityModel}</li>
+        <li>Backend: ${network.architecture.serverRuntime}</li>
+        <li>Prediction split: ${network.architecture.ownership.locallyPredicted.join(', ')}</li>
+        <li>Server split: ${network.architecture.ownership.serverAuthoritative.join(', ')}</li>
+      </ul>
+      <ul class="hud-detail-list">${transports}</ul>
+    </section>
+  `;
+}
+
+function renderNetworkSession(network) {
+  const roster = network.session.roster
+    .map(
+      (player) => `
+        <li>
+          <strong>${player.name}</strong>
+          <span>${player.role} · ${player.stage}</span>
+          <span>Status: ${player.status}</span>
+          <span>Latency: ${player.latencyMs}ms</span>
+          <span>Respawn: ${player.respawnState.mode}${player.respawnState.checkpointId ? ` @ ${player.respawnState.checkpointId}` : ''}</span>
+          <span>Bonuses: ${formatList(Object.entries(player.roleSync.bonuses).map(([bonusId, value]) => `${bonusId}×${value}`))}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  return `
+    <section class="hud-section">
+      <h3>Co-op session</h3>
+      <ul>
+        <li>Players: ${network.session.connectedPlayers}/${network.session.settings.maxPlayers}</li>
+        <li>Min start size: ${network.session.settings.minPlayers}</li>
+        <li>Reconnect window: ${network.session.settings.reconnectWindowSeconds}s</li>
+        <li>Shared chapter: ${network.session.story.chapterId}</li>
+        <li>Checkpoint: ${network.session.story.checkpointId}</li>
+        <li>Completed triggers: ${formatList(network.session.story.completedTriggers)}</li>
+      </ul>
+      <ul class="hud-detail-list">${roster}</ul>
+    </section>
+  `;
+}
+
+function renderReplication(network) {
+  const entities = network.replication.entities
+    .map(
+      (entity) => `
+        <li>
+          <strong>${entity.kind} · ${entity.id}</strong>
+          <span>Authority: ${entity.authority}</span>
+          <span>Channels: ${entity.channels.join(', ')}</span>
+          <span>Predicted: ${formatList(entity.predictableFields)}</span>
+          <span>Authoritative: ${formatList(entity.authoritativeFields)}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  return `
+    <section class="hud-section">
+      <h3>Replication layer</h3>
+      <ul>
+        <li>Revision: ${network.replication.revision}</li>
+        <li>Total entities: ${network.replication.summary.total}</li>
+        <li>Hybrid entities: ${network.replication.summary.hybrid}</li>
+        <li>Authoritative-only: ${network.replication.summary.authoritative}</li>
+        <li>Players/Buildables/Pickups/Enemies/Events: ${network.replication.summary.byKind.Player}/${network.replication.summary.byKind.Buildable}/${network.replication.summary.byKind.Pickup}/${network.replication.summary.byKind.Enemy}/${network.replication.summary.byKind.WorldEvent}</li>
+      </ul>
+      <ul class="hud-detail-list">${entities}</ul>
+    </section>
+  `;
+}
+
 function renderWorldZones(world) {
   const entries = world.zones
     .map(
@@ -194,10 +294,10 @@ export function createHudOverlay() {
 
   const tip = document.createElement('div');
   tip.className = 'hud-tip';
-  tip.textContent = 'Прототип: потребности деградируют, рецепты крафтятся по возрасту, а база снижает риск и открывает отдых.';
+  tip.textContent = 'Прототип: ввод и движение локально предсказываются, а инвентарь, строительство и сюжет уходят в серверно-авторитетный replication-слой.';
   hud.append(tip);
 
-  const update = ({ player, capabilities, access, progression, world, survival }) => {
+  const update = ({ player, capabilities, access, progression, world, survival, network }) => {
     panel.innerHTML = `
       <span class="hud-label">Progression HUD</span>
       <h1>NewLife Survival Prototype</h1>
@@ -216,6 +316,7 @@ export function createHudOverlay() {
         <h3>Unlocked skills</h3>
         <p>${formatList(player.abilities.unlockedSkills)}</p>
       </section>
+      ${renderRoleBonuses(player)}
       <section class="hud-section">
         <h3>Locomotion</h3>
         <p>${formatList(capabilities.locomotionModes)}</p>
@@ -245,6 +346,9 @@ export function createHudOverlay() {
       ${renderBooleanMap('Craft checks', access.crafting)}
       ${renderBooleanMap('Interaction checks', access.interactions)}
       ${renderBooleanMap('Constraint checks', access.constraints)}
+      ${renderNetworkArchitecture(network)}
+      ${renderNetworkSession(network)}
+      ${renderReplication(network)}
       ${renderSurvival(survival, access)}
       ${renderWorldZones(world)}
       ${renderWorldGates(world)}
@@ -256,6 +360,8 @@ export function createHudOverlay() {
   update({
     player: {
       stage: 'Infant',
+      role: 'Engineer',
+      networkBonuses: { buildSpeed: 1.07, repairEfficiency: 1.17, powerThroughput: 1.11, craftingQuality: 1.07 },
       stats: { health: 100, hunger: 100, thirst: 100, rest: 100, safety: 18, experience: 0 },
       abilities: { unlockedSkills: [] },
     },
@@ -311,6 +417,69 @@ export function createHudOverlay() {
         { id: 'infant-simple-shelter', name: 'Простое укрытие', ingredients: { rope: 2, cloth: 2, sticks: 4 }, output: { simple_shelter: 1 } },
       ],
       stageHints: ['искать тряпки рядом с местом старта', 'использовать бутылочки для воды'],
+    },
+    network: {
+      architecture: {
+        decision: 'Authoritative Node.js room server over WebSockets for gameplay, with WebRTC reserved for future side channels.',
+        authorityModel: 'authoritative-server',
+        serverRuntime: 'Node.js + Colyseus-style room backend',
+        ownership: {
+          locallyPredicted: ['movement', 'camera', 'animation'],
+          serverAuthoritative: ['inventory', 'damage', 'building', 'resourceSpawns', 'storyTriggers', 'sharedProgress'],
+        },
+        transports: [
+          { id: 'websocket', usage: 'gameplay replication and reconnect flows', reliability: 'reliable ordered' },
+          { id: 'webrtc-datachannel', usage: 'future optional telemetry/voice side traffic', reliability: 'mixed / optional' },
+        ],
+      },
+      session: {
+        settings: { minPlayers: 2, maxPlayers: 8, reconnectWindowSeconds: 45 },
+        connectedPlayers: 2,
+        roster: [
+          {
+            name: 'You',
+            stage: 'Infant',
+            role: 'Engineer',
+            status: 'connected',
+            latencyMs: 22,
+            respawnState: { mode: 'alive', checkpointId: null },
+            roleSync: { bonuses: { buildSpeed: 1.07, repairEfficiency: 1.17 } },
+          },
+          {
+            name: 'Iris',
+            stage: 'Child',
+            role: 'Scout',
+            status: 'connected',
+            latencyMs: 41,
+            respawnState: { mode: 'alive', checkpointId: null },
+            roleSync: { bonuses: { moveSpeed: 1.07, visibilityRadius: 1.25 } },
+          },
+        ],
+        story: {
+          chapterId: 'prologue',
+          checkpointId: 'hospital',
+          completedTriggers: [],
+        },
+      },
+      replication: {
+        revision: 1,
+        summary: {
+          total: 5,
+          hybrid: 2,
+          authoritative: 3,
+          byKind: { Player: 2, Buildable: 0, Pickup: 1, Enemy: 1, WorldEvent: 1 },
+        },
+        entities: [
+          {
+            id: 'player-local',
+            kind: 'Player',
+            authority: 'hybrid',
+            channels: ['input', 'movement', 'inventory', 'bonuses', 'story'],
+            predictableFields: ['position', 'velocity', 'cameraYaw', 'animationState'],
+            authoritativeFields: ['inventory', 'health', 'role', 'roleBonuses', 'respawnState', 'storyFlags'],
+          },
+        ],
+      },
     },
     world: {
       activeZoneId: 'hospital',

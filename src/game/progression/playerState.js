@@ -1,4 +1,5 @@
 import { AgeStage, getAgeStageCapabilities, getAgeStageTransition } from './ageStages.js';
+import { PlayerRole } from '../network/roles.js';
 
 export function createPlayerStats(overrides = {}) {
   return {
@@ -22,6 +23,8 @@ export function createPlayerAbilities(overrides = {}) {
 export function createPlayerState(overrides = {}) {
   const playerState = {
     stage: overrides.stage ?? AgeStage.Infant,
+    role: overrides.role ?? PlayerRole.Engineer,
+    networkBonuses: { ...(overrides.networkBonuses ?? {}) },
     stats: createPlayerStats(overrides.stats),
     abilities: createPlayerAbilities(overrides.abilities),
     storyGoals: [...(overrides.storyGoals ?? [])],
@@ -35,6 +38,14 @@ export function createPlayerState(overrides = {}) {
     },
     getStageCapabilities() {
       return getAgeStageCapabilities(playerState.stage);
+    },
+    setRole(role) {
+      playerState.role = role;
+      return this.getSnapshot();
+    },
+    setNetworkBonuses(networkBonuses) {
+      playerState.networkBonuses = { ...networkBonuses };
+      return this.getSnapshot();
     },
     setVitals(nextVitals) {
       playerState.stats = {
@@ -129,6 +140,8 @@ export function evaluateStageProgression(playerState) {
 function clonePlayerState(playerState) {
   return {
     stage: playerState.stage,
+    role: playerState.role,
+    networkBonuses: { ...playerState.networkBonuses },
     stats: { ...playerState.stats },
     abilities: { unlockedSkills: [...playerState.abilities.unlockedSkills] },
     storyGoals: [...playerState.storyGoals],
