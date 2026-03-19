@@ -16,7 +16,7 @@ export const AGE_STAGE_CAPABILITIES = Object.freeze({
       maxReachHeight: 0.8,
       maxCarryWeight: 2,
       weaponTier: 0,
-      zoneAccess: ['nursery', 'safe-yard'],
+      zoneAccess: ['hospital', 'hospital_vents'],
     },
   }),
   [AgeStage.Child]: freezeStageCapabilities({
@@ -27,7 +27,7 @@ export const AGE_STAGE_CAPABILITIES = Object.freeze({
       maxReachHeight: 1.4,
       maxCarryWeight: 8,
       weaponTier: 1,
-      zoneAccess: ['nursery', 'safe-yard', 'village', 'shallow-forest'],
+      zoneAccess: ['hospital', 'hospital_vents', 'yards'],
     },
   }),
   [AgeStage.Teen]: freezeStageCapabilities({
@@ -38,7 +38,7 @@ export const AGE_STAGE_CAPABILITIES = Object.freeze({
       maxReachHeight: 2.4,
       maxCarryWeight: 18,
       weaponTier: 2,
-      zoneAccess: ['nursery', 'safe-yard', 'village', 'shallow-forest', 'river-crossing', 'ruins'],
+      zoneAccess: ['hospital', 'hospital_vents', 'yards', 'streets', 'rooftops', 'utility_tunnels'],
     },
   }),
   [AgeStage.Adult]: freezeStageCapabilities({
@@ -49,7 +49,7 @@ export const AGE_STAGE_CAPABILITIES = Object.freeze({
       maxReachHeight: 3.2,
       maxCarryWeight: 32,
       weaponTier: 3,
-      zoneAccess: ['nursery', 'safe-yard', 'village', 'shallow-forest', 'river-crossing', 'ruins', 'mountain-pass', 'ancient-vault'],
+      zoneAccess: ['hospital', 'hospital_vents', 'yards', 'streets', 'rooftops', 'utility_tunnels', 'control_center'],
     },
   }),
 });
