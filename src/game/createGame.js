@@ -7,6 +7,7 @@ import { createSurvivalPrototype } from './createSurvivalPrototype.js';
 import { getAgeStageScale } from './progression/ageStages.js';
 import { createGameplayAccessController } from './progression/gameplayAccess.js';
 import { createPlayerState } from './progression/playerState.js';
+import { createNetworkRuntime } from './network/index.js';
 import { createWorldState } from './world/index.js';
 
 const vertexShaderSource = `
@@ -67,6 +68,7 @@ export function createGame(container, options = {}) {
   const survival = createSurvivalPrototype(playerState);
   const gameplayAccess = createGameplayAccessController(playerState, () => survival.getDynamicEffects());
   const worldState = createWorldState(playerState);
+  const networkRuntime = createNetworkRuntime(playerState);
   const meshes = [createGroundMesh(), createPlayerCapsuleMesh()];
   const gpuMeshes = meshes.map((mesh) => uploadMesh(gl, mesh));
   const uniforms = getUniformLocations(gl, program);
@@ -88,7 +90,7 @@ export function createGame(container, options = {}) {
     gl.viewport(0, 0, canvas.width, canvas.height);
   };
 
-  const emitHudState = (survivalSnapshot) => {
+  const emitHudState = (survivalSnapshot, networkSnapshot) => {
     const snapshot = playerState.getSnapshot();
     syncHud({
       player: snapshot,
@@ -97,6 +99,7 @@ export function createGame(container, options = {}) {
       progression: playerState.evaluateStageProgression(),
       world: worldState.describeWorldSnapshot(),
       survival: survivalSnapshot,
+      network: networkSnapshot,
     });
   };
 
@@ -162,7 +165,13 @@ export function createGame(container, options = {}) {
 
     unlockDemoProgression(elapsed);
     const survivalSnapshot = survival.update(deltaSeconds);
-    emitHudState(survivalSnapshot);
+    const worldSnapshot = worldState.describeWorldSnapshot();
+    const networkSnapshot = networkRuntime.update({
+      elapsedSeconds: elapsed,
+      world: worldSnapshot,
+      survival: survivalSnapshot,
+    });
+    emitHudState(survivalSnapshot, networkSnapshot);
 
     resize();
     gl.clearColor(0.529, 0.714, 1, 1);
@@ -203,7 +212,8 @@ export function createGame(container, options = {}) {
     start() {
       window.addEventListener('resize', resize);
       const survivalSnapshot = survival.getSnapshot();
-      emitHudState(survivalSnapshot);
+      const networkSnapshot = networkRuntime.getSnapshot();
+      emitHudState(survivalSnapshot, networkSnapshot);
       resize();
       render(performance.now());
     },
