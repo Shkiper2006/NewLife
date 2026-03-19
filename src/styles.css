@@ -127,6 +127,25 @@ canvas {
   display: contents;
 }
 
+.hud-detail-list {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  padding-left: 0;
+}
+
+.hud-detail-list li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.75rem;
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.hud-detail-list strong {
+  color: #f8fafc;
+}
+
 .hud-tip {
   align-self: flex-end;
   max-width: min(28rem, 100%);

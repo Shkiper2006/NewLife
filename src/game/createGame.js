@@ -6,6 +6,7 @@ import { createIdentityMatrix, createModelMatrix, multiplyMatrices } from '../sy
 import { getAgeStageScale } from './progression/ageStages.js';
 import { createGameplayAccessController } from './progression/gameplayAccess.js';
 import { createPlayerState } from './progression/playerState.js';
+import { createWorldState } from './world/index.js';
 
 const vertexShaderSource = `
 attribute vec3 aPosition;
@@ -63,6 +64,7 @@ export function createGame(container, options = {}) {
   const lighting = configureLighting();
   const playerState = createPlayerState();
   const gameplayAccess = createGameplayAccessController(playerState);
+  const worldState = createWorldState(playerState);
   const meshes = [createGroundMesh(), createPlayerCapsuleMesh()];
   const gpuMeshes = meshes.map((mesh) => uploadMesh(gl, mesh));
   const uniforms = getUniformLocations(gl, program);
@@ -90,6 +92,7 @@ export function createGame(container, options = {}) {
       capabilities: gameplayAccess.getCapabilities(),
       access: gameplayAccess.describeChecks(),
       progression: playerState.evaluateStageProgression(),
+      world: worldState.describeWorldSnapshot(),
     });
   };
 
@@ -99,6 +102,7 @@ export function createGame(container, options = {}) {
       playerState.addExperience(40);
       playerState.addTutorialMilestone('basic-mobility');
       playerState.unlockSkill('crawl-balance');
+      playerState.unlockSkill('squeeze-through-vents');
     }
 
     if (elapsed >= 6 && !completedMilestones.has('infant-step-2')) {
@@ -115,6 +119,7 @@ export function createGame(container, options = {}) {
       playerState.addExperience(140);
       playerState.addTutorialMilestone('crafting-basics');
       playerState.unlockSkill('berry-foraging');
+      playerState.unlockSkill('door-latch-reach');
     }
 
     if (elapsed >= 13 && !completedMilestones.has('child-step-2')) {
@@ -131,6 +136,8 @@ export function createGame(container, options = {}) {
       playerState.addExperience(280);
       playerState.addTutorialMilestone('combat-discipline');
       playerState.unlockSkill('stone-weapon-mastery');
+      playerState.unlockSkill('ledge-balance');
+      playerState.unlockSkill('service-panel-access');
     }
 
     if (elapsed >= 20 && !completedMilestones.has('teen-step-2')) {
@@ -139,6 +146,7 @@ export function createGame(container, options = {}) {
       playerState.addTutorialMilestone('advanced-traversal');
       playerState.addStoryGoal('restore-frontier-beacon');
       playerState.addInventoryItem('lineage-sigil');
+      playerState.unlockSkill('control-center-clearance');
       playerState.advanceAgeStage();
     }
   };
@@ -266,27 +274,35 @@ function getUniformLocations(gl, program) {
   };
 }
 
+function getAttributeLocations(gl, program) {
+  return {
+    position: requireAttribute(gl, program, 'aPosition'),
+    normal: requireAttribute(gl, program, 'aNormal'),
+    color: requireAttribute(gl, program, 'aColor'),
+  };
+}
+
 function requireUniform(gl, program, name) {
   const location = gl.getUniformLocation(program, name);
   if (!location) {
-    throw new Error(`Uniform not found: ${name}`);
+    throw new Error(`Uniform ${name} was not found.`);
   }
   return location;
 }
 
-function getAttributeLocations(gl, program) {
-  return {
-    position: gl.getAttribLocation(program, 'aPosition'),
-    normal: gl.getAttribLocation(program, 'aNormal'),
-    color: gl.getAttribLocation(program, 'aColor'),
-  };
+function requireAttribute(gl, program, name) {
+  const location = gl.getAttribLocation(program, name);
+  if (location < 0) {
+    throw new Error(`Attribute ${name} was not found.`);
+  }
+  return location;
 }
 
 function drawMesh(gl, mesh, attributes, uniforms, modelMatrix) {
+  gl.uniformMatrix4fv(uniforms.modelMatrix, false, toFloat32(modelMatrix));
   bindAttribute(gl, mesh.position, attributes.position);
   bindAttribute(gl, mesh.normal, attributes.normal);
   bindAttribute(gl, mesh.color, attributes.color);
-  gl.uniformMatrix4fv(uniforms.modelMatrix, false, toFloat32(modelMatrix));
   gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
 }
 
@@ -296,6 +312,6 @@ function bindAttribute(gl, attribute, location) {
   gl.vertexAttribPointer(location, attribute.size, gl.FLOAT, false, 0, 0);
 }
 
-function toFloat32(values) {
-  return values instanceof Float32Array ? values : new Float32Array(values);
+function toFloat32(matrix) {
+  return matrix instanceof Float32Array ? matrix : new Float32Array(matrix);
 }
