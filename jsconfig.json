@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "checkJs": true,
+    "baseUrl": "."
+  },
+  "include": ["src/**/*.js", "scripts/**/*.mjs"]
+}
