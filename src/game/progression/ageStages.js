@@ -10,8 +10,8 @@ const orderedStages = [AgeStage.Infant, AgeStage.Child, AgeStage.Teen, AgeStage.
 export const AGE_STAGE_CAPABILITIES = Object.freeze({
   [AgeStage.Infant]: freezeStageCapabilities({
     locomotionModes: ['crawl', 'roll'],
-    craftRecipes: ['soft-cloth-wrap', 'rattle-toy'],
-    worldInteractions: ['observe', 'listen', 'grab-nearby', 'call-for-help'],
+    craftRecipes: ['infant-rope', 'infant-simple-shelter'],
+    worldInteractions: ['observe', 'listen', 'grab-nearby', 'call-for-help', 'rest-in-shelter'],
     constraints: {
       maxReachHeight: 0.8,
       maxCarryWeight: 2,
@@ -21,8 +21,8 @@ export const AGE_STAGE_CAPABILITIES = Object.freeze({
   }),
   [AgeStage.Child]: freezeStageCapabilities({
     locomotionModes: ['walk', 'run', 'climb-low-ledges'],
-    craftRecipes: ['twig-bundle', 'water-pouch', 'berry-snack'],
-    worldInteractions: ['gather', 'talk', 'open-simple-doors', 'harvest-basic'],
+    craftRecipes: ['child-rope-ladder', 'child-hook', 'child-portable-shelter'],
+    worldInteractions: ['gather', 'talk', 'open-simple-doors', 'harvest-basic', 'rest-in-shelter'],
     constraints: {
       maxReachHeight: 1.4,
       maxCarryWeight: 8,
@@ -32,8 +32,8 @@ export const AGE_STAGE_CAPABILITIES = Object.freeze({
   }),
   [AgeStage.Teen]: freezeStageCapabilities({
     locomotionModes: ['walk', 'run', 'climb', 'swim', 'vault'],
-    craftRecipes: ['stone-axe', 'campfire-kit', 'field-bandage', 'rope-hook'],
-    worldInteractions: ['trade', 'hunt-small-game', 'repair', 'mentor-followers', 'use-workbenches'],
+    craftRecipes: ['teen-spear', 'teen-knife', 'teen-bow', 'teen-trap', 'teen-tent'],
+    worldInteractions: ['trade', 'hunt-small-game', 'repair', 'mentor-followers', 'use-workbenches', 'place-defense'],
     constraints: {
       maxReachHeight: 2.4,
       maxCarryWeight: 18,
@@ -43,8 +43,8 @@ export const AGE_STAGE_CAPABILITIES = Object.freeze({
   }),
   [AgeStage.Adult]: freezeStageCapabilities({
     locomotionModes: ['walk', 'run', 'climb', 'swim', 'vault', 'ride'],
-    craftRecipes: ['iron-spear', 'reinforced-shelter', 'advanced-tonic', 'zone-beacon'],
-    worldInteractions: ['lead-ritual', 'command-gate', 'build-outpost', 'hunt-large-game', 'forge'],
+    craftRecipes: ['adult-generator', 'adult-water-purifier', 'adult-fortification'],
+    worldInteractions: ['lead-ritual', 'command-gate', 'build-outpost', 'hunt-large-game', 'forge', 'stabilize-base'],
     constraints: {
       maxReachHeight: 3.2,
       maxCarryWeight: 32,

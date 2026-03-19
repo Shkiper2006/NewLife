@@ -9,25 +9,43 @@ import {
   getAgeStageCapabilities,
 } from './ageStages.js';
 
-export function createGameplayAccessController(playerState) {
+export function createGameplayAccessController(playerState, getDynamicEffects = () => ({})) {
+  function resolveDynamicEffects() {
+    return {
+      actionMultiplier: 1,
+      ...getDynamicEffects(),
+    };
+  }
+
+  function canPerformDemandingAction() {
+    return resolveDynamicEffects().actionMultiplier >= 0.55;
+  }
+
   return {
     getCapabilities() {
       return getAgeStageCapabilities(playerState.getSnapshot().stage);
     },
     canTraverse(mode) {
+      if ((mode === 'run' || mode === 'climb' || mode === 'vault') && !canPerformDemandingAction()) {
+        return false;
+      }
       return canUseMovement(playerState.getSnapshot().stage, mode);
     },
     canCraft(recipeId) {
       return canCraftRecipe(playerState.getSnapshot().stage, recipeId);
     },
     canInteract(interactionId) {
+      if ((interactionId === 'repair' || interactionId === 'forge' || interactionId === 'stabilize-base') && !canPerformDemandingAction()) {
+        return false;
+      }
       return canUseWorldInteraction(playerState.getSnapshot().stage, interactionId);
     },
     canReach(targetHeight) {
       return canReachHeight(playerState.getSnapshot().stage, targetHeight);
     },
     canCarry(weight) {
-      return canCarryWeight(playerState.getSnapshot().stage, weight);
+      const dynamicMultiplier = resolveDynamicEffects().actionMultiplier;
+      return canCarryWeight(playerState.getSnapshot().stage, weight / Math.max(dynamicMultiplier, 0.35));
     },
     canEquipWeapon(weaponTier) {
       return canEquipWeaponTier(playerState.getSnapshot().stage, weaponTier);
@@ -37,33 +55,39 @@ export function createGameplayAccessController(playerState) {
     },
     describeChecks() {
       const snapshot = playerState.getSnapshot();
+      const effects = resolveDynamicEffects();
       return {
         movement: {
           crawl: canUseMovement(snapshot.stage, 'crawl'),
-          run: canUseMovement(snapshot.stage, 'run'),
-          climb: canUseMovement(snapshot.stage, 'climb'),
-          vault: canUseMovement(snapshot.stage, 'vault'),
+          run: this.canTraverse('run'),
+          climb: this.canTraverse('climb'),
+          vault: this.canTraverse('vault'),
           ride: canUseMovement(snapshot.stage, 'ride'),
         },
         crafting: {
-          'soft-cloth-wrap': canCraftRecipe(snapshot.stage, 'soft-cloth-wrap'),
-          'stone-axe': canCraftRecipe(snapshot.stage, 'stone-axe'),
-          'iron-spear': canCraftRecipe(snapshot.stage, 'iron-spear'),
+          'infant-simple-shelter': canCraftRecipe(snapshot.stage, 'infant-simple-shelter'),
+          'teen-spear': canCraftRecipe(snapshot.stage, 'teen-spear'),
+          'adult-fortification': canCraftRecipe(snapshot.stage, 'adult-fortification'),
         },
         interactions: {
           gather: canUseWorldInteraction(snapshot.stage, 'gather'),
-          repair: canUseWorldInteraction(snapshot.stage, 'repair'),
-          forge: canUseWorldInteraction(snapshot.stage, 'forge'),
-          'call-for-help': canUseWorldInteraction(snapshot.stage, 'call-for-help'),
+          repair: this.canInteract('repair'),
+          forge: this.canInteract('forge'),
+          'rest-in-shelter': canUseWorldInteraction(snapshot.stage, 'rest-in-shelter'),
         },
         constraints: {
           enterHospitalVents: canAccessZone(snapshot.stage, 'hospital_vents'),
           enterYards: canAccessZone(snapshot.stage, 'yards'),
           enterRooftops: canAccessZone(snapshot.stage, 'rooftops'),
           enterControlCenter: canAccessZone(snapshot.stage, 'control_center'),
-          carrySupplyCrate: canCarryWeight(snapshot.stage, 12),
+          carrySupplyCrate: this.canCarry(12),
           reachSecurityPanel: canReachHeight(snapshot.stage, 2.6),
           equipTierTwoWeapon: canEquipWeaponTier(snapshot.stage, 2),
+        },
+        modifiers: {
+          actionMultiplier: Number(effects.actionMultiplier.toFixed(2)),
+          saveUnlocked: Boolean(effects.saveUnlocked),
+          recoveryUnlocked: Boolean(effects.recoveryUnlocked),
         },
       };
     },

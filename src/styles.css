@@ -45,8 +45,8 @@ canvas {
 }
 
 .hud-panel {
-  width: min(30rem, calc(100vw - 3rem));
-  max-height: calc(100vh - 7rem);
+  width: min(34rem, calc(100vw - 3rem));
+  max-height: calc(100vh - 6rem);
   overflow: auto;
   padding: 1rem 1.25rem;
   border: 1px solid rgba(148, 163, 184, 0.28);

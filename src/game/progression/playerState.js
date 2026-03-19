@@ -5,6 +5,8 @@ export function createPlayerStats(overrides = {}) {
     hunger: 100,
     thirst: 100,
     health: 100,
+    rest: 100,
+    safety: 18,
     experience: 0,
     ...overrides,
   };
