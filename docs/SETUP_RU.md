@@ -312,14 +312,6 @@ npm run check
 
 Проверяет TypeScript-код на ошибки типов.
 
-### Диагностика установки
-
-```bash
-npm run doctor
-```
-
-Проверяет, что вы находитесь в правильной папке проекта и что ключевые зависимости действительно установлены в `node_modules`.
-
 ### Production-сборка
 
 ```bash
@@ -517,44 +509,6 @@ node -v
 
 Если версия слишком старая, установите **Node.js 20 LTS** или новее.
 
-### Ситуация: `npm install` пишет `up to date, audited 1 package`
-
-Обычно это значит, что npm поставил **не зависимости проекта**, а почти ничего. Самые частые причины:
-
-1. Команда запущена **не в папке `NewLife`**.
-2. У вас остались старые `node_modules` или старый `package-lock.json`.
-3. Установка оборвалась или npm работает через проблемный прокси/кэш.
-
-Сначала проверьте, где вы находитесь:
-
-```bash
-pwd
-cat package.json
-```
-
-В `package.json` должны быть зависимости вроде `react`, `three`, `vite`, `ws`, `zustand`.
-
-Дальше сделайте чистую переустановку:
-
-#### macOS / Linux
-
-```bash
-rm -rf node_modules package-lock.json
-npm install
-npm run doctor
-```
-
-#### Windows PowerShell
-
-```powershell
-Remove-Item -Recurse -Force node_modules
-Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue
-npm install
-npm run doctor
-```
-
-Если `npm run doctor` покажет, что пакеты не установлены, проблема уже не в проекте, а в окружении npm: прокси, сеть, права доступа или блокировка реестра.
-
 ---
 
 ## 12. Что делать, если игра не открывается в браузере
@@ -737,12 +691,6 @@ npm run dev:server
 
 ```bash
 npm run check
-```
-
-### Диагностика установки
-
-```bash
-npm run doctor
 ```
 
 ### Собрать production
