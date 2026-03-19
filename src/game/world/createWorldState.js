@@ -3,7 +3,7 @@ import { describeRequirement, evaluateAccessRequirement } from './accessRequirem
 import { createWorldChunkLoader } from './chunkLoader.js';
 import { ADULT_INFRASTRUCTURE_LAYER, EARLY_WORLD_VERTICALITY, WORLD_GATES, WORLD_ZONES } from './worldData.js';
 
-export function createWorldState(playerState) {
+export function createWorldState(playerState, storyCampaign = null) {
   const chunkLoader = createWorldChunkLoader();
 
   function getContext() {
@@ -52,6 +52,7 @@ export function createWorldState(playerState) {
         gates: gateStatuses,
         verticality: EARLY_WORLD_VERTICALITY,
         infrastructure: ADULT_INFRASTRUCTURE_LAYER,
+        story: storyCampaign ? storyCampaign.getSnapshot() : null,
       };
     },
   };

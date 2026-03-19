@@ -215,6 +215,99 @@ function renderInfrastructure(world) {
   `;
 }
 
+
+function renderStory(story) {
+  if (!story) {
+    return '';
+  }
+
+  const activeAct = story.acts.find((act) => act.active) ?? story.acts[0];
+  const actEntries = story.acts
+    .map(
+      (act) => `
+        <li>
+          <strong>${act.title}</strong>
+          <span>Zones: ${formatList(act.availableZones)}</span>
+          <span>Mechanics: ${formatList(act.unlockedMechanics)}</span>
+          <span>Status: ${act.completed ? 'completed' : act.active ? 'active' : 'locked later'}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  const objectiveEntries = activeAct.requiredObjectives
+    .map(
+      (objective) => `
+        <li>
+          <strong>${objective.label}</strong>
+          <span>${objective.completed ? 'completed' : 'pending'}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  const sideEntries = activeAct.sideEvents
+    .map(
+      (event) => `
+        <li>
+          <strong>${event.label}</strong>
+          <span>${event.completed ? 'seen' : 'available'}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  const branchEntries = story.factionBranches
+    .map(
+      (branch) => `
+        <li>
+          <strong>${branch.label}</strong>
+          <span>${branch.summary}</span>
+          <span>${branch.available ? 'available' : 'locked by infrastructure'}</span>
+          <span>${branch.selected ? 'selected' : 'not selected'}</span>
+        </li>
+      `,
+    )
+    .join('');
+
+  return `
+    <section class="hud-section">
+      <h3>Quest log</h3>
+      <ul>
+        <li>Active act: ${story.activeActId}</li>
+        <li>Chapter: ${story.activeChapterId}</li>
+        <li>Checkpoint: ${story.checkpointId}</li>
+        <li>Completed acts: ${formatList(story.completedActs)}</li>
+      </ul>
+      <ul class="hud-detail-list">${actEntries}</ul>
+    </section>
+    <section class="hud-section">
+      <h3>Active objectives</h3>
+      <ul class="hud-detail-list">${objectiveEntries}</ul>
+    </section>
+    <section class="hud-section">
+      <h3>Side events</h3>
+      <ul class="hud-detail-list">${sideEntries}</ul>
+    </section>
+    <section class="hud-section">
+      <h3>Infrastructure state</h3>
+      <ul>
+        <li>Power: ${story.infrastructure.power.toFixed(2)}</li>
+        <li>Water: ${story.infrastructure.water.toFixed(2)}</li>
+        <li>Communication: ${story.infrastructure.communication.toFixed(2)}</li>
+        <li>Defense: ${story.infrastructure.defense.toFixed(2)}</li>
+        <li>Final choice: ${story.finalChoice ?? 'not selected'}</li>
+      </ul>
+    </section>
+    <section class="hud-section">
+      <h3>Faction branches</h3>
+      <ul class="hud-detail-list">${branchEntries}</ul>
+      <p>Seasonal hooks: ${formatList(story.extensionPoints.globalSeasonalHooks)}</p>
+      <p>Postgame hooks: ${formatList(story.extensionPoints.globalPostGameHooks)}</p>
+    </section>
+  `;
+}
+
 function renderSurvival(survival, access) {
   const placements = survival.base.placements
     .map(
@@ -297,7 +390,7 @@ export function createHudOverlay() {
   tip.textContent = 'Прототип: ввод и движение локально предсказываются, а инвентарь, строительство и сюжет уходят в серверно-авторитетный replication-слой.';
   hud.append(tip);
 
-  const update = ({ player, capabilities, access, progression, world, survival, network }) => {
+  const update = ({ player, capabilities, access, progression, world, story, survival, network }) => {
     panel.innerHTML = `
       <span class="hud-label">Progression HUD</span>
       <h1>NewLife Survival Prototype</h1>
@@ -349,6 +442,7 @@ export function createHudOverlay() {
       ${renderNetworkArchitecture(network)}
       ${renderNetworkSession(network)}
       ${renderReplication(network)}
+      ${renderStory(story)}
       ${renderSurvival(survival, access)}
       ${renderWorldZones(world)}
       ${renderWorldGates(world)}
@@ -403,6 +497,34 @@ export function createHudOverlay() {
         requiredItems: ['family-totem'],
         tutorialMilestones: ['basic-mobility', 'first-foraging-lesson'],
       },
+    },
+    story: {
+      activeActId: 'act-1-hospital-escape',
+      activeChapterId: 'hospital_escape',
+      checkpointId: 'hospital_nursery',
+      completedActs: [],
+      infrastructure: { power: 0, water: 0, communication: 0, defense: 0 },
+      finalChoice: null,
+      acts: [
+        {
+          id: 'act-1-hospital-escape',
+          title: 'Act 1 · Hospital Escape',
+          availableZones: ['hospital', 'hospital_vents'],
+          unlockedMechanics: ['micro-stealth', 'vent-crawling'],
+          active: true,
+          completed: false,
+          requiredObjectives: [
+            { label: 'Проснуться в роддоме и понять, что эвакуация сорвалась.', completed: false },
+            { label: 'Сбежать из процедурной через детский маршрут или вентиляцию.', completed: false },
+          ],
+          sideEvents: [{ label: 'Подслушать тревогу персонала и узнать о карантине.', completed: false }],
+        },
+      ],
+      factionBranches: [
+        { label: 'Open the City', summary: 'Открыть город для новых связей.', available: false, selected: false },
+        { label: 'Protect the City', summary: 'Укрепить оборону и контуры доступа.', available: false, selected: false },
+      ],
+      extensionPoints: { globalSeasonalHooks: [], globalPostGameHooks: [] },
     },
     survival: {
       needs: { rest: 100, safety: 18, pressure: 0.3 },
